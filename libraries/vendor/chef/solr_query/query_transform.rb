@@ -15,50 +15,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-require 'treetop'
-require 'chef/solr_query/lucene_nodes'
+if Chef::Config[:solo]
+  require 'treetop'
+  require 'chef/solr_query/lucene_nodes'
 
-class Chef
-  class Exceptions
-    class QueryParseError < StandardError
+  class Chef
+    class Exceptions
+      class QueryParseError < StandardError
+      end
     end
   end
-end
 
-class Chef
-  class SolrQuery
-    class QueryTransform
-      @@base_path = File.expand_path(File.dirname(__FILE__))
-      Treetop.load(File.join(@@base_path, 'lucene.treetop'))
-      @@parser = LuceneParser.new
+  class Chef
+    class SolrQuery
+      class QueryTransform
+        @@base_path = File.expand_path(File.dirname(__FILE__))
+        Treetop.load(File.join(@@base_path, 'lucene.treetop'))
+        @@parser = LuceneParser.new
 
-      def self.parse(data)
-        tree = @@parser.parse(data)
-        msg = "Parse error at offset: #{@@parser.index}\n"
-        msg += "Reason: #{@@parser.failure_reason}"
-        raise Chef::Exceptions::QueryParseError, msg if tree.nil?
-        self.clean_tree(tree)
-        tree.to_array
-      end
-
-      def self.transform(data)
-        return "*:*" if data == "*:*"
-        tree = @@parser.parse(data)
-        msg = "Parse error at offset: #{@@parser.index}\n"
-        msg += "Reason: #{@@parser.failure_reason}"
-        raise Chef::Exceptions::QueryParseError, msg if tree.nil?
-        self.clean_tree(tree)
-        tree.transform
-      end
-
-      private
-
-      def self.clean_tree(root_node)
-        return if root_node.elements.nil?
-        root_node.elements.delete_if do |node|
-          node.class.name == "Treetop::Runtime::SyntaxNode"
+        def self.parse(data)
+          tree = @@parser.parse(data)
+          msg = "Parse error at offset: #{@@parser.index}\n"
+          msg += "Reason: #{@@parser.failure_reason}"
+          raise Chef::Exceptions::QueryParseError, msg if tree.nil?
+          self.clean_tree(tree)
+          tree.to_array
         end
-        root_node.elements.each { |node| self.clean_tree(node) }
+
+        def self.transform(data)
+          return "*:*" if data == "*:*"
+          tree = @@parser.parse(data)
+          msg = "Parse error at offset: #{@@parser.index}\n"
+          msg += "Reason: #{@@parser.failure_reason}"
+          raise Chef::Exceptions::QueryParseError, msg if tree.nil?
+          self.clean_tree(tree)
+          tree.transform
+        end
+
+        private
+
+        def self.clean_tree(root_node)
+          return if root_node.elements.nil?
+          root_node.elements.delete_if do |node|
+            node.class.name == "Treetop::Runtime::SyntaxNode"
+          end
+          root_node.elements.each { |node| self.clean_tree(node) }
+        end
       end
     end
   end
